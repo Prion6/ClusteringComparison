@@ -28,9 +28,8 @@ def run_DSP_test(X_data, Y_data, V_data, Z_clus):
 
     labels = grouping_df['GrNr'].to_numpy()
 
-    n_clusters = np.unique(labels).size
 
-    return n_clusters, labels, data
+    return labels, data, None
 
 def run_DS_test(X_data, Y_data, V_data):
 

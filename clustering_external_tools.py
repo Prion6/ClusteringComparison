@@ -1,9 +1,11 @@
 import numpy as np
 import pandas as pd
+import clustering_metrics as cmetrics
 from sklearn.neighbors import NearestNeighbors
 from kneed import KneeLocator
 from astropy.stats import biweight_location, biweight_scale
 from sklearn.metrics import confusion_matrix
+from scipy.optimize import linear_sum_assignment
 from scipy.optimize import linear_sum_assignment
 
 def compute_mapping_probabilities(array1, array2):
@@ -211,3 +213,96 @@ def get_overlapping_areas(distances, radius1, radius2):
                 part2 = R2**2 * np.arccos((d**2 + R2**2 - R1**2) / (2 * d * R2))
                 part3 = 0.5 * np.sqrt((-d + R1 + R2) * (d + R1 - R2) * (d - R1 + R2) * (d + R1 + R2))
                 overlap_areas[i, j] = part1 + part2 - part3
+
+def overlap_data(data, group, labels):
+    true_centers = get_cluster_center(data, group)
+    pred_centers = get_cluster_center(data, labels)
+
+    true_mean_centers = np.array([cluster['location'] for cluster in true_centers.values()])
+    pred_mean_centers = np.array([cluster['location'] for cluster in pred_centers.values()])
+
+    true_radial_std = np.array([np.linalg.norm(cluster['scale']) for cluster in true_centers.values()])
+    pred_radial_std = np.array([np.linalg.norm(cluster['scale']) for cluster in pred_centers.values()])
+
+    distances = compute_distance_matrix(true_mean_centers, pred_mean_centers)
+
+    true_x, true_y = true_mean_centers[:, 0], true_mean_centers[:, 1]
+    pred_x, pred_y = pred_mean_centers[:, 0], pred_mean_centers[:, 1]
+
+    true_std_expanded = true_radial_std[:, np.newaxis]  # Shape (num_true, 1)-
+    pred_std_expanded = pred_radial_std[np.newaxis, :]  # Shape (1, num_pred)
+
+    # Normalize distances
+    distances_percent_true = (distances / true_std_expanded)  # Percentage of true std
+    distances_percent_pred = (distances / pred_std_expanded)  # Percentage of pred std
+
+    pi = np.pi
+
+    true_areas = pi * (true_radial_std ** 2)
+    pred_areas = pi * (pred_radial_std ** 2)
+
+    num_true, num_pred = distances.shape
+    overlap_areas = np.zeros((num_true, num_pred))
+
+    for i in range(num_true):
+        for j in range(num_pred):
+            R1, R2 = true_radial_std[i], pred_radial_std[j]
+            d = distances[i, j]
+
+            # If the circles do not overlap
+            if d >= R1 + R2:
+                overlap_areas[i, j] = 0
+            # If one circle is completely inside another
+            elif d <= abs(R1 - R2):
+                overlap_areas[i, j] = pi * min(R1, R2) ** 2
+            # Partial overlap case
+            else:
+                part1 = R1**2 * np.arccos((d**2 + R1**2 - R2**2) / (2 * d * R1))
+                part2 = R2**2 * np.arccos((d**2 + R2**2 - R1**2) / (2 * d * R2))
+                part3 = 0.5 * np.sqrt((-d + R1 + R2) * (d + R1 - R2) * (d - R1 + R2) * (d + R1 + R2))
+                overlap_areas[i, j] = part1 + part2 - part3
+
+    true_areas_expanded = true_areas[:, np.newaxis]  # Shape (num_true, 1)
+    pred_areas_expanded = pred_areas[np.newaxis, :]  # Shape (1, num_pred)
+
+    # Normalize distances
+    overlap_percent_true = (overlap_areas / true_areas_expanded)  # Percentage of true std
+    overlap_percent_pred = (overlap_areas / pred_areas_expanded)  # Percentage of pred std
+
+    f1_matrix = cmetrics.get_f1_score(overlap_percent_true, overlap_percent_pred)
+
+    distances_df = matrix_as_table(distances)
+    distances_percent_true_df = matrix_as_table(distances_percent_true)
+    distances_percent_pred_df = matrix_as_table(distances_percent_pred)
+
+    #true_areas_df = ctools.matrix_as_table(true_areas)
+    #pred_areas_df = ctools.matrix_as_table(pred_areas)
+
+    overlap_areas_df = matrix_as_table(overlap_areas)
+
+    overlap_percent_true_df = matrix_as_table(overlap_percent_true)
+    overlap_percent_pred_df = matrix_as_table(overlap_percent_pred)
+    f1_df = matrix_as_table(f1_matrix)    
+
+    return distances_df, distances_percent_true_df, distances_percent_pred_df, overlap_areas_df, overlap_percent_true_df, overlap_percent_pred_df, f1_df    
+
+
+def membership_overlap(y_true, y_pred):
+    cm = confusion_matrix(y_true, y_pred)
+    
+    unique_true, ut_count = np.unique(y_true, return_counts=True)
+    unique_pred, up_count = np.unique(y_pred, return_counts=True)
+    
+def maximize_diag(matrix):
+    
+    # Pad the matrix to be square if needed (Hungarian algorithm requires square)
+    max_dim = max(matrix.shape)
+    padded_matrix = np.zeros((max_dim, max_dim), dtype=float)
+    padded_matrix[:matrix.shape[0], :matrix.shape[1]] = matrix
+
+    # Maximize diagonal using Hungarian algorithm
+    row_ind, col_ind = linear_sum_assignment(-padded_matrix)
+    aligned_matrix = padded_matrix[:, col_ind]
+    aligned_matrx = aligned_matrix[:matrix.shape[0], :matrix.shape[1]]
+
+    return aligned_matrix

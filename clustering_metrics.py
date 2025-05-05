@@ -6,7 +6,6 @@ from itertools import combinations
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics.cluster import contingency_matrix
 
-
 def get_lax_match(true, pred):
 
     # True Positives: Estimated matches the real value and is positive
@@ -118,17 +117,8 @@ def get_calinski_harabasz_index(data, labels):
     denominator = within_dispersion / (n_samples - n_clusters)
     return numerator / denominator
 
-
-
-
-
-
 def purity_score(true, predicted):
     # Confusion matrix (contingency matrix)
     cont_matrix = contingency_matrix(true, predicted)
     
     return np.sum(np.max(cont_matrix, axis=0)) / np.sum(cont_matrix)
-
-
-
-

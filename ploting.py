@@ -102,7 +102,7 @@ def plot_clusters(X_data, Y_data, labels, alpha_scale=1, scale=100, legend="Disp
         selected_edge_colors = edgecolors  # Use default edge color if not provided
 
     # Create the plot
-    fig, ax = plt.subplots(figsize=(16, 12))  # Create figure and axes
+    fig, ax = plt.subplots(figsize=(8, 6))  # Create figure and axes
 
     # Scatter plot with custom colors, sizes, and alpha
     scatter = ax.scatter(
@@ -208,7 +208,7 @@ def plot_prob_with_data_and_custom_colors(X_data, Y_data, size_array, color_arra
 
 def plot_comparative_clusters(X_data, Y_data, true_labels, pred_labels,  alpha_scale=1, scale=100, 
     legend="Comparative Plot", edgecolors='black', linewidth=1.5, true_markers = 'x', pre_markers = 'o', 
-    base = 'true', average = 'location', deviation = 'scale', size_array = None):
+    base = 'true', average = 'location', deviation = 'scale', size_array = None, alpha_true = 0.5, alpha_pred = 0.5):
 
     if size_array is None:
         size_array = np.ones_like(X_data)
@@ -233,24 +233,93 @@ def plot_comparative_clusters(X_data, Y_data, true_labels, pred_labels,  alpha_s
     elif base == 'pred':
         labels = pred_labels
 
-    fig, ax = plot_clusters(X_data, Y_data, labels, scale=100, legend='GMM Groups', linewidth=0, size_array = size_array)
+    fig, ax = plot_clusters(X_data, Y_data, labels)
 
-    ax.scatter(true_x, true_y, label='True Centers (x)', color='red', marker='x', s=100)
-    ax.scatter(pred_x, pred_y, label='True Centers (0)', color='blue', marker='o', s=20)
+    color_true = "#F8A55C"
+    color_pred = "#8EADF1"
+
 
     # Add circles for pred_radial_std
     for px, py, std in zip(pred_x, pred_y, pred_radial_std):
-        circle = plt.Circle((px, py), std, color='blue', alpha=0.2, fill=True)
+        circle = plt.Circle((px, py), std, color='blue', alpha=alpha_pred, fill=True)
         ax.add_artist(circle)
 
+    ax.scatter(pred_x, pred_y, label='Predicted Centers (0)', color='blue', marker='o', s=20)
+
     for tx, ty, std in zip(true_x, true_y, true_radial_std):
-        circle = plt.Circle((tx, ty), std, color='red', alpha=0.2, fill=True)
+        circle = plt.Circle((tx, ty), std, color='red', alpha=alpha_true, fill=True)
         ax.add_artist(circle)
+    
+    
+    ax.scatter(true_x, true_y, label='True Centers (x)', color='red', marker='x', s=100)
 
     # Update legend, grid, and axis properties
     ax.set_title(legend)
     ax.legend()
     ax.grid(True)
     ax.axis('equal')  # Ensure circles look circular
+
+    return fig, ax
+
+def plot_comparative_clusters_n0(X_data, Y_data, true_labels, pred_labels,  
+    alpha_scale=1, scale=100, legend="Comparative Plot", edgecolors='black', linewidth=1.5,  
+    true_markers='x', pre_markers='o', base='true', average='location', deviation='scale',  
+    size_array=None, alpha_true=0.5, alpha_pred=0.5):  
+
+    if size_array is None:
+        size_array = np.ones_like(X_data)
+
+    data = np.column_stack((X_data, Y_data))
+
+    # Mask out points where pred_labels == 0
+    mask = pred_labels != -1
+    filtered_pred_labels = pred_labels[mask]
+    filtered_data = data[mask]
+
+    true_centers = ctools.get_cluster_center(data, true_labels)
+    pred_centers = ctools.get_cluster_center(filtered_data, filtered_pred_labels)
+
+    true_mean_centers = np.array([cluster[average] for cluster in true_centers.values()])
+    pred_mean_centers = np.array([cluster[average] for cluster in pred_centers.values()]) if pred_centers else np.array([])
+
+    pred_radial_std = np.array([np.linalg.norm(cluster[deviation]) for cluster in pred_centers.values()]) if pred_centers else np.array([])
+    true_radial_std = np.array([np.linalg.norm(cluster[deviation]) for cluster in true_centers.values()])
+
+    true_x, true_y = true_mean_centers[:, 0], true_mean_centers[:, 1]
+    pred_x, pred_y = (pred_mean_centers[:, 0], pred_mean_centers[:, 1]) if pred_mean_centers.size > 0 else ([], [])
+
+    if base == 'true':
+        labels = true_labels
+    elif base == 'pred':
+        labels = filtered_pred_labels  # Use filtered predicted labels
+
+    fig, ax = plot_clusters(X_data, Y_data, labels,alpha_scale=alpha_scale, scale=scale,legend=legend)
+
+    color_true = "#F8A55C"
+    color_pred = "#8EADF1"
+
+    # Add circles for pred_radial_std (only if valid clusters exist)
+    if len(pred_x) > 0:
+        for px, py, std in zip(pred_x, pred_y, pred_radial_std):
+            circle = plt.Circle((px, py), std, color='blue', alpha=alpha_pred, fill=True)
+            ax.add_artist(circle)
+
+        ax.scatter(pred_x, pred_y, label='Predicted Centers (o)', color='blue', marker='o', s=20)
+
+    # Add circles for true_radial_std
+    for tx, ty, std in zip(true_x, true_y, true_radial_std):
+        circle = plt.Circle((tx, ty), std, color='red', alpha=alpha_true, fill=True)
+        ax.add_artist(circle)
+
+    ax.scatter(true_x, true_y, label='True Centers (x)', color='red', marker='x', s=100)
+
+    # Update legend, grid, and axis properties
+    ax.set_title(legend)
+    ax.legend()
+    ax.grid(True)
+    ax.axis('equal')  # Ensure circles look circular
+
+    plt.ylabel("DEC")
+    plt.xlabel("RA")
 
     return fig, ax
