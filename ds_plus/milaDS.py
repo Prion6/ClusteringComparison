@@ -12,7 +12,7 @@ import os
 import scipy as sc
 from scipy import stats
 import random
-import tools_DS
+from ds_plus import tools_DS
 
 # import matplotlib.pyplot as plt
 # plt.close()

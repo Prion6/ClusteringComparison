@@ -97,7 +97,7 @@ def map_colors(labels, colors, noise_label):
             
     return maped_colors
 
-def gradients_plot(lagends, gradients, xlabel = "Reliability", yLabel = "Saples Validated", title = "Reliability Gradient"):
+def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples Validated", title = "Reliability Gradient"):
     
     colors = cg.high_contrast_colors(len(gradients))
 
@@ -107,8 +107,8 @@ def gradients_plot(lagends, gradients, xlabel = "Reliability", yLabel = "Saples 
     fig, ax = plt.subplots(figsize=(8, 5))
 
     # Plot each algorithm's data with a unique color
-    for i, alg in enumerate(legends):
-        ax.plot(x_values, y_values[alg], label=alg, color=colors[i % len(colors)])
+    for i, (alg, gradient) in enumerate(zip(legends, gradients)):
+        ax.plot(x_values, gradient, label=alg, color=colors[i % len(colors)])
 
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)

@@ -1,7 +1,6 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from sklearn.metrics import confusion_matrix
-import clustering_external_tools as ctools
 from itertools import combinations
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics.cluster import contingency_matrix
