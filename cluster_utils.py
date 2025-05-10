@@ -156,6 +156,8 @@ def calculate_overlap_metrics(data, og_labels, pred_labels, og_areas = None, pre
     overlap_purity = overlap_areas/pred_areas_expanded
     overlap_f1 = cm.get_f1_score(overlap_completeness, overlap_purity)
     
+    overlap_f1 = np.nan_to_num(overlap_f1, nan=0)
+    
     return overlap_completeness, overlap_purity, overlap_f1
 
 def calculate_membership_metrics(og_labels, pred_labels):
@@ -170,6 +172,7 @@ def calculate_membership_metrics(og_labels, pred_labels):
     completeness = confusion_matrix/ogc_expanded
     purity = confusion_matrix/pgc_expanded
     f1_score = cm.get_f1_score(completeness, purity)
+    f1_score = np.nan_to_num(f1_score, nan=0)
     
     return completeness, purity, f1_score
 
