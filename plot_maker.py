@@ -1,6 +1,7 @@
 import color_generator as cg
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 #TODO let them choose color pallete
 def cluster_plot_2D(X_data, Y_data, labels,
@@ -117,4 +118,52 @@ def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples 
     ax.legend()
 
     # Return figure and axis instead of showing the plot
+    return fig, ax
+
+def gradients_plot_as_bars(legends, gradients, xlabel="Reliability", ylabel="Samples Validated", title="Reliability Gradient"):
+
+    x_points = np.array([0.2, 0.4, 0.6, 0.8, 1.0])
+    num_reliabilities = len(x_points)
+    num_algorithms = len(gradients)
+
+    bar_width = 0.15
+    group_width = bar_width * num_reliabilities
+    fig, ax = plt.subplots(figsize=(12, 6))
+    colors = [cm.get_cmap('rainbow')( 1 - (i / (num_reliabilities - 1))) for i in range(num_reliabilities)]
+
+    xticks = []
+    xtick_labels = []
+
+    # Plot bars
+    for i, rel in enumerate(x_points):
+        heights = []
+        for gradient in gradients:
+            full_x = np.linspace(0, 1, len(gradient))
+            y = np.interp(rel, full_x, gradient)
+            heights.append(y)
+
+        # X positions for this reliability level
+        x_offsets = np.arange(num_algorithms) - (group_width / 2) + i * bar_width + bar_width / 2
+        ax.bar(x_offsets, heights, width=bar_width, color=colors[i], label=f"{rel}")
+
+        xticks.extend(x_offsets)
+        xtick_labels.extend([f"{rel}"] * num_algorithms)
+
+    # Set tick labels for reliability values (above)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xtick_labels, rotation=90)
+
+    # Add algorithm names centered under each group
+    for idx, name in enumerate(legends):
+        group_center = idx
+        ax.text(group_center, -0.08 * ax.get_ylim()[1], name,
+                ha='center', va='top', fontsize=10, fontweight='bold')
+
+    # Formatting
+    ax.set_xlabel(xlabel, labelpad=30)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend(title="Reliability")
+    ax.grid(True, axis='y')
+
     return fig, ax
