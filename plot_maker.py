@@ -118,3 +118,33 @@ def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples 
 
     # Return figure and axis instead of showing the plot
     return fig, ax
+
+
+def gradients_bar_plot(thresholds, legends, gradients, xlabel="Reliability", ylabel="Score", title="Reliability Gradient"):
+    gradients = np.array(gradients)  # shape: (num_algorithms, num_thresholds)
+    num_algorithms, num_thresholds = gradients.shape
+    
+    x = np.arange(num_thresholds)  # positions for thresholds on x-axis
+    bar_width = 0.8 / num_algorithms  # space each algorithm's bar
+
+    cmap = cm.get_cmap('rainbow', num_algorithms)
+    colors = [cmap(i) for i in range(num_algorithms)]
+    
+    fig, ax = plt.subplots(figsize=(10, 6))
+    
+    for i in range(num_algorithms):
+        ax.bar(x + i * bar_width, gradients[i], width=bar_width, label=legends[i], color=colors[i])
+
+    # Set axis labels and ticks
+    ax.set_xlabel(xlabel, labelpad=15)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    
+    ax.set_xticks(x + bar_width * (num_algorithms - 1) / 2)
+    ax.set_xticklabels([str(t) for t in thresholds])
+    
+    ax.legend(title="Algorithms")
+    ax.grid(True, axis='y', linestyle='--', alpha=0.7)
+    
+    plt.tight_layout()
+    return fig, ax
