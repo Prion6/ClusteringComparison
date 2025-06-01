@@ -1,6 +1,7 @@
 import color_generator as cg
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 
 #TODO let them choose color pallete
 def cluster_plot_2D(X_data, Y_data, labels,
