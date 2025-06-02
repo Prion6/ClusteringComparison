@@ -98,9 +98,10 @@ def map_colors(labels, colors, noise_label):
             
     return maped_colors
 
-def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples Validated", title = "Reliability Gradient"):
+def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples Validated", title = "Reliability Gradient", colors = None):
     
-    colors = cg.high_contrast_colors(len(gradients))
+    if colors is None:
+        colors = cg.high_contrast_colors(len(gradients))
 
     x_values = np.linspace(0, 1, 100)
 
@@ -120,32 +121,54 @@ def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples 
     # Return figure and axis instead of showing the plot
     return fig, ax
 
+def gradients_bar_plot(legends, gradients, xlabel="Reliability", ylabel="Samples Validated", title="Reliability Gradient", colors = None):
+    x_points = np.array([0.2, 0.4, 0.6, 0.8, 1.0])
+    num_reliabilities = len(x_points)
+    num_algorithms = len(gradients)
 
-def gradients_bar_plot(thresholds, legends, gradients, xlabel="Reliability", ylabel="Score", title="Reliability Gradient"):
-    gradients = np.array(gradients)  # shape: (num_algorithms, num_thresholds)
-    num_algorithms, num_thresholds = gradients.shape
+    legends = list(legends)
     
-    x = np.arange(num_thresholds)  # positions for thresholds on x-axis
-    bar_width = 0.8 / num_algorithms  # space each algorithm's bar
+    group_width = 0.8
+    bar_width = group_width/num_algorithms
+    fig, ax = plt.subplots(figsize=(12, 6))
+    if colors is None:
+        colors = cg.high_contrast_colors(len(gradients))
 
-    cmap = cm.get_cmap('rainbow', num_algorithms)
-    colors = [cmap(i) for i in range(num_algorithms)]
-    
-    fig, ax = plt.subplots(figsize=(10, 6))
-    
-    for i in range(num_algorithms):
-        ax.bar(x + i * bar_width, gradients[i], width=bar_width, label=legends[i], color=colors[i])
+    xticks = []
+    xtick_labels = []
 
-    # Set axis labels and ticks
-    ax.set_xlabel(xlabel, labelpad=15)
+    # Plot bars
+    
+    for i, gradient in enumerate(gradients):
+        heights = []
+        for rel in x_points:
+            full_x = np.linspace(0, 1, len(gradient))
+            y = np.interp(rel, full_x, gradient)
+            heights.append(y)
+
+        # X positions for this reliability level
+        x_offsets = np.arange(len(x_points)) - (group_width / 2) + i * bar_width + bar_width / 2
+        ax.bar(x_offsets, heights, width=bar_width, color=colors[i], label=f"{rel}")
+
+        xticks.extend(x_offsets)
+        xtick_labels.extend([legends[i]] * num_reliabilities)
+
+    # Set tick labels for reliability values (above)
+    ax.set_xticks(xticks)
+    ax.set_xticklabels(xtick_labels, rotation=90)
+
+    # Add algorithm names centered under each group
+    for idx, name in enumerate(x_points):
+        group_center = idx
+        ax.text(group_center, -0.25 * ax.get_ylim()[1], name,
+                ha='center', va='top', fontsize=10, fontweight='bold')
+
+    # Formatting
+    ax.set_xlabel(xlabel, labelpad = 40)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
-    
-    ax.set_xticks(x + bar_width * (num_algorithms - 1) / 2)
-    ax.set_xticklabels([str(t) for t in thresholds])
-    
-    ax.legend(title="Algorithms")
-    ax.grid(True, axis='y', linestyle='--', alpha=0.7)
-    
-    plt.tight_layout()
+    #ax.legend(legends, title="Algorithms")
+    ax.grid(True, axis='y')
+
     return fig, ax
+
