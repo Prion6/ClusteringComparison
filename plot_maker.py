@@ -165,6 +165,7 @@ def gradients_bar_plot(legends, gradients, xlabel="Reliability", ylabel="Samples
 
     # Formatting
     ax.set_xlabel(xlabel, labelpad = 40)
+    ax.set_ylim(0, 100)
     ax.set_ylabel(ylabel)
     ax.set_title(title)
     #ax.legend(legends, title="Algorithms")
