@@ -92,7 +92,9 @@ def separate_clusters(dfs, members_threshold = 50, log_mass_threshold = 14, Mp_s
 
     for df in dfs:
         
-        if len(df) < members_threshold:
+        main_halo_count = (df['group_label'] == 0).sum()
+
+        if main_halo_count < members_threshold:
             groups.append(df)
             continue
         
