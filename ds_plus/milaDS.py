@@ -85,11 +85,11 @@ def DSp_groups(
     ID_glx = range(len(Xcoor))
     data_glx_in_cluster = np.column_stack((ID_glx, Xcoor, Ycoor, Vlos))
 
-    h_small = 0.6774
+    h_small = 0.673
     G = (4.514e-39) * ((3.086e16) ** 2.0)  # G en unidades de km^2/s^2 *kpc/Msun
     H0 = h_small / 10.0  # H0 pasando de (km/s * 1/Mpc) a (km/s * 1/kpc)
-    Omega_L0 = 0.73
-    Omega_m0 = 0.27
+    Omega_L0 = 0.7
+    Omega_m0 = 0.3
 
     Plim = (
         1.0 * Plim_P / 100

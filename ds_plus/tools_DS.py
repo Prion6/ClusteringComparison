@@ -47,7 +47,7 @@ def nfw_params(zave, sigmaap, cin, auth_i=None):
     """
 
     grav = 43.0  # gravitational constant
-    h0 = 0.7
+    h0 = 0.673
     Omega0 = 0.3  # Omega_0
     OmegaLambda = 0.7  # Omega_Lambda
     hz = h0 * np.sqrt(Omega0 * ((1.0 + zave) ** 3) + OmegaLambda)
@@ -162,7 +162,7 @@ def nfwvdp_proj(zave, sigmaap, cin, rrv, r200=None, auth_i=None):
     """
 
     grav = 43.0  # gravitational constant
-    h0 = 0.7
+    h0 = 0.673
     Omega0 = 0.3  # Omega_0
     OmegaLambda = 0.7  # Omega_Lambda
     hz = h0 * np.sqrt(Omega0 * ((1.0 + zave) ** 3) + OmegaLambda)

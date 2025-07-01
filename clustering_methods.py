@@ -65,7 +65,7 @@ def run_OPTICS(data, params):
 
 def run_Kmeans(data, params):
     max_clusters = params.get('max_clusters', 40)
-    key_point = params.get('key_point', 'location')
+    key_point = params.get('key_point', 'elbow_value')
     random_state = params.get('random_state', 0)
 
     sse = []
@@ -76,16 +76,7 @@ def run_Kmeans(data, params):
 
     elbow_value, elbow_point, location, location_point, median, median_point, mean, mean_point = cu.get_key_points(sse)
 
-    if key_point == 'location':
-        n_clusters = location_point
-    elif key_point == 'elbow_value':
-        n_clusters = elbow_point
-    elif key_point == 'median':
-        n_clusters = median_point
-    elif key_point == 'mean':
-        n_clusters = mean_point
-    else:
-        n_clusters = location_point
+    n_clusters = elbow_point
 
     clusterer = KMeans(n_clusters=n_clusters, random_state=random_state)
     clusterer.fit(data)
@@ -96,7 +87,7 @@ def run_Kmeans(data, params):
 
 def run_Aglomerative_Clustering(data, params):
     max_clusters = params.get('max_clusters', 40)
-    key_point = params.get('key_point', 'location')
+    key_point = params.get('key_point', 'elbow_value')
     linkage_type = params.get('linkage', 'ward')
 
     sse = []
@@ -110,16 +101,7 @@ def run_Aglomerative_Clustering(data, params):
 
     elbow_value, elbow_point, location, location_point, median, median_point, mean, mean_point = cu.get_key_points(sse)
 
-    if key_point == 'location':
-        n_clusters = location_point
-    elif key_point == 'elbow_value':
-        n_clusters = elbow_point
-    elif key_point == 'median':
-        n_clusters = median_point
-    elif key_point == 'mean':
-        n_clusters = mean_point
-    else:
-        n_clusters = location_point
+    n_clusters = elbow_point
 
     clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage_type)
     clusterer.fit(data)
