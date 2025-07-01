@@ -9,9 +9,8 @@ import cluster_utils as cu
 
 def run_GMM(data, params):
     clusterer = BayesianGaussianMixture(
-        n_components=params.get('max_clusters', 40),
+        n_components=params.get('max_clusters', 60),
         covariance_type=params.get('covariance_type', 'full'),
-        random_state=params.get('random_state', 0),
         max_iter=params.get('max_iter',1000)
     )
     clusterer.fit(data)
@@ -30,22 +29,12 @@ def run_HDBSCAN(data, params):
 
 
 def run_DBSCAN(data, params):
-    key_point = params.get('key_point', 'location')
     min_samples = params.get('min_cluster_size', 5)
 
     sorted_distances = cu.find_eps(data, min_samples)
     elbow_value, elbow_point, location, location_point, median, median_point, mean, mean_point = cu.get_key_points(sorted_distances)
 
-    if key_point == 'location':
-        eps = location
-    elif key_point == 'elbow_value':
-        eps = elbow_value
-    elif key_point == 'median':
-        eps = median
-    elif key_point == 'mean':
-        eps = mean
-    else:
-        eps = location
+    eps = location
 
     clusterer = DBSCAN(eps=eps, min_samples=min_samples)
     labels = clusterer.fit_predict(data)
@@ -64,8 +53,7 @@ def run_OPTICS(data, params):
 
 
 def run_Kmeans(data, params):
-    max_clusters = params.get('max_clusters', 40)
-    key_point = params.get('key_point', 'elbow_value')
+    max_clusters = params.get('max_clusters', 60)
     random_state = params.get('random_state', 0)
 
     sse = []
@@ -86,8 +74,7 @@ def run_Kmeans(data, params):
 
 
 def run_Aglomerative_Clustering(data, params):
-    max_clusters = params.get('max_clusters', 40)
-    key_point = params.get('key_point', 'elbow_value')
+    max_clusters = params.get('max_clusters', 60)
     linkage_type = params.get('linkage', 'ward')
 
     sse = []
@@ -111,9 +98,8 @@ def run_Aglomerative_Clustering(data, params):
 
 
 def run_Affinity_Propagation(data, params):
-    clusterer = AffinityPropagation(
-        random_state=params.get('random_state', 0)
-    )
+    clusterer = AffinityPropagation()
+
     clusterer.fit(data)
     labels = clusterer.labels_
     probabilities = np.ones_like(labels, dtype=float)

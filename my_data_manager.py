@@ -5,7 +5,7 @@ import numpy as np
 import astro_utils as au
 from astropy.stats import biweight_location
 
-def scrub_data(dfs):
+def scrub_data(df):
     
     for i in range(len(dfs)):
         # Split the concatenated column into multiple columns
@@ -47,6 +47,24 @@ def scrub_data(dfs):
         #df['haloId_dor'] = df['haloId_dor'] - 1
     
     return dfs
+
+def load_cat(cat):
+ 
+    df = pd.read_csv(cat, delim_whitespace=True, header=None)
+
+    df.columns = df.iloc[0]  # Set first row as header
+    df = df[1:].reset_index(drop=True)
+    
+    return df
+
+def separate_halos(df):
+    grouped = df.groupby('firstHaloInFOFGroupId')
+
+    # Store each group in a dictionary, where keys are the unique IDs
+    dfs = [group_df for _, group_df in grouped]
+
+    return dfs
+
 
 def load_data(path):
 
@@ -92,26 +110,28 @@ def separate_clusters(dfs, members_threshold = 50, log_mass_threshold = 14, Mp_s
 
     for df in dfs:
         
-        main_halo_count = (df['group_label'] == 0).sum()
+        main_halo_count = (df['haloId'] == df['firstHaloInFOFGroupId']).sum()
 
         if main_halo_count < members_threshold:
             groups.append(df)
             continue
         
-        if df['log(m_200)'][0] < log_mass_threshold:
+        halo_mass = float(df['log(m_200)'].iloc[0])
+
+        if halo_mass < log_mass_threshold:
             groups.append(df)
             continue
-
+        
         Z_data = df["z_app"]
     
         clus_z = biweight_location(Z_data)
 
-        r_200 = au.get_r_200(df['log(m_200)'][0], clus_z, H0=67.3, Om0=0.3)
+        r_200 = au.get_r_200(halo_mass, clus_z, H0=67.3, Om0=0.3)
 
         if r_200 < Mp_size_threshold:
             groups.append(df)
             continue
-
+        
         clusters.append(df)
     
     return clusters, groups
