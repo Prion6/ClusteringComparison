@@ -72,7 +72,6 @@ def run_Kmeans(data, params):
     probabilities = np.ones_like(labels, dtype=float)
     return labels, probabilities, clusterer
 
-
 def run_Aglomerative_Clustering(data, params):
     max_clusters = params.get('max_clusters', 60)
     linkage_type = params.get('linkage', 'ward')
@@ -82,18 +81,30 @@ def run_Aglomerative_Clustering(data, params):
         clusterer = AgglomerativeClustering(n_clusters=k, linkage=linkage_type)
         clusterer.fit(data)
         labels = clusterer.labels_
-        cluster_centers = np.array([data[labels == i].mean(axis=0) for i in range(k)])
-        wcss_k = sum(np.linalg.norm(data[labels == i] - center, axis=1).sum() for i, center in enumerate(cluster_centers))
+        
+        cluster_centers = np.array([
+            data[labels == i].mean(axis=0) if np.any(labels == i) else np.zeros(data.shape[1])
+            for i in range(k)
+        ])
+        
+        wcss_k = 0.0
+        for i, center in enumerate(cluster_centers):
+            cluster_points = data[labels == i]
+            if cluster_points.ndim == 1:
+                cluster_points = cluster_points.reshape(1, -1)
+            distances = np.linalg.norm(cluster_points - center, axis=1)
+            wcss_k += distances.sum()
+        
         sse.append(wcss_k)
 
     elbow_value, elbow_point, location, location_point, median, median_point, mean, mean_point = cu.get_key_points(sse)
-
     n_clusters = elbow_point
 
     clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage_type)
     clusterer.fit(data)
     labels = clusterer.labels_
     probabilities = np.ones_like(labels, dtype=float)
+
     return labels, probabilities, clusterer
 
 
