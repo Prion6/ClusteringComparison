@@ -8,8 +8,9 @@ import cluster_utils as cu
 
 
 def run_GMM(data, params):
+    cuts = int(len(data) * params.get('max_clusters', 0.2))
     clusterer = BayesianGaussianMixture(
-        n_components=params.get('max_clusters', 60),
+        n_components=cuts,
         covariance_type=params.get('covariance_type', 'full'),
         max_iter=params.get('max_iter',1000)
     )
@@ -53,7 +54,7 @@ def run_OPTICS(data, params):
 
 
 def run_Kmeans(data, params):
-    max_clusters = params.get('max_clusters', 60)
+    max_clusters = int(len(data) * params.get('max_clusters', 0.2))
     random_state = params.get('random_state', 0)
 
     sse = []
@@ -73,39 +74,41 @@ def run_Kmeans(data, params):
     return labels, probabilities, clusterer
 
 def run_Aglomerative_Clustering(data, params):
-    max_clusters = params.get('max_clusters', 60)
+    max_clusters = int(len(data) * params.get('max_clusters', 0.2))
     linkage_type = params.get('linkage', 'ward')
 
     sse = []
+
     for k in range(1, max_clusters):
         clusterer = AgglomerativeClustering(n_clusters=k, linkage=linkage_type)
         clusterer.fit(data)
         labels = clusterer.labels_
-        
-        cluster_centers = np.array([
-            data[labels == i].mean(axis=0) if np.any(labels == i) else np.zeros(data.shape[1])
-            for i in range(k)
-        ])
-        
+
+        cluster_centers = []
         wcss_k = 0.0
-        for i, center in enumerate(cluster_centers):
+
+        for i in range(k):
             cluster_points = data[labels == i]
-            if cluster_points.ndim == 1:
-                cluster_points = cluster_points.reshape(1, -1)
+            center = cluster_points.mean(axis=0)  # shape (2,)
+            cluster_centers.append(center)
             distances = np.linalg.norm(cluster_points - center, axis=1)
             wcss_k += distances.sum()
-        
+
+        cluster_centers = np.array(cluster_centers)
         sse.append(wcss_k)
 
+    # Choose optimal number of clusters (e.g. elbow method)
     elbow_value, elbow_point, location, location_point, median, median_point, mean, mean_point = cu.get_key_points(sse)
     n_clusters = elbow_point
 
+    # Final clustering
     clusterer = AgglomerativeClustering(n_clusters=n_clusters, linkage=linkage_type)
     clusterer.fit(data)
     labels = clusterer.labels_
     probabilities = np.ones_like(labels, dtype=float)
 
     return labels, probabilities, clusterer
+
 
 
 def run_Affinity_Propagation(data, params):
