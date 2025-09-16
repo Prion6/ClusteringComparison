@@ -43,9 +43,9 @@ def calculate_cluster_centers(data, labels):
         cluster_points = data[labels == label]  # Select points belonging to the current cluster
         cluster_centers[label] = {
             'mean': np.mean(cluster_points, axis=0),
-            'std': np.std(cluster_points, axis=0),
-            'location': biweight_location(cluster_points, axis=0),
-            'scale': biweight_scale(cluster_points, axis=0)
+            'std': 0.0 if cluster_points.size <= 1 else np.std(cluster_points, axis=0),
+            'location': cluster_points[0] if cluster_points.size <= 1 else biweight_location(cluster_points, axis=0),
+            'scale': 0.0 if cluster_points.size <= 1 else biweight_scale(cluster_points, axis=0)
         }
 
     return cluster_centers
@@ -176,23 +176,19 @@ def calculate_membership_metrics(og_labels, pred_labels):
     
     return completeness, purity, f1_score
 
-def reliability_gradient(matrixes):
+def reliability_gradient(matrix, steps=100, source_axis=1):
     
-    x_values = np.linspace(0, 1, 100)
-    avg_percentages = []
+    x_values = np.linspace(0, 1, steps)
+    percentages = []
     
-    for x in x_values:
-        percentages = []
+    ev_axis = 0
+    if source_axis == 0:
+        ev_axis = 1
 
-        for m in matrixes:
-            if m.size == 0:
-                continue
-            count_above_x = (m >= x).any(axis=0).sum()
-            percentage = (count_above_x / m.shape[1]) * 100
-            percentages.append(percentage)
-        
-        # Compute the average percentage across all matrices
-        avg_percentage = np.mean(percentages) if percentages else 0
-        avg_percentages.append(avg_percentage)
+    for x in x_values:
+
+        count_above_x = (matrix >= x).any(axis=source_axis).sum()
+        percentage = (count_above_x / matrix.shape[ev_axis]) * steps
+        percentages.append(percentage)
     
-    return avg_percentages
+    return percentages
