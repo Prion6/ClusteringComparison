@@ -160,6 +160,61 @@ def calculate_overlap_metrics(data, og_labels, pred_labels, og_areas = None, pre
     
     return overlap_completeness, overlap_purity, overlap_f1
 
+def calculate_overlap_completeness(data, og_labels, pred_labels, og_areas = None, pred_areas = None, overlap_areas = None):
+    
+    if og_areas is None:
+        og_areas = calculate_areas(data, og_labels)
+        
+    if pred_areas is None:
+        pred_areas = calculate_areas(data, pred_labels)
+        
+    if overlap_areas is None:
+        overlap_areas = calculate_overlaps(data, og_labels, pred_labels)
+        
+    og_areas_expanded = og_areas[:, np.newaxis]  # Shape (num_true, 1)
+        
+    overlap_completeness = overlap_areas/og_areas_expanded
+    
+    return overlap_completeness
+
+def calculate_overlap_purity(data, og_labels, pred_labels, og_areas = None, pred_areas = None, overlap_areas = None):
+    
+    if og_areas is None:
+        og_areas = calculate_areas(data, og_labels)
+        
+    if pred_areas is None:
+        pred_areas = calculate_areas(data, pred_labels)
+        
+    if overlap_areas is None:
+        overlap_areas = calculate_overlaps(data, og_labels, pred_labels)
+        
+    pred_areas_expanded = pred_areas[np.newaxis, :]  # Shape (1, num_pred)
+        
+    overlap_purity = overlap_areas/pred_areas_expanded
+    
+    return overlap_purity
+
+def calculate_overlap_f1(data, og_labels, pred_labels, og_areas = None, pred_areas = None, overlap_areas = None):
+    if og_areas is None:
+        og_areas = calculate_areas(data, og_labels)
+        
+    if pred_areas is None:
+        pred_areas = calculate_areas(data, pred_labels)
+        
+    if overlap_areas is None:
+        overlap_areas = calculate_overlaps(data, og_labels, pred_labels)
+        
+    og_areas_expanded = og_areas[:, np.newaxis]  # Shape (num_true, 1)
+    pred_areas_expanded = pred_areas[np.newaxis, :]  # Shape (1, num_pred)
+        
+    overlap_completeness = overlap_areas/og_areas_expanded
+    overlap_purity = overlap_areas/pred_areas_expanded
+    overlap_f1 = cm.get_f1_score(overlap_completeness, overlap_purity)
+    
+    overlap_f1 = np.nan_to_num(overlap_f1, nan=0)
+    
+    return overlap_f1
+
 def calculate_membership_metrics(og_labels, pred_labels):
     confusion_matrix = pd.crosstab(index=og_labels, columns=pred_labels) 
     
@@ -175,6 +230,45 @@ def calculate_membership_metrics(og_labels, pred_labels):
     f1_score = np.nan_to_num(f1_score, nan=0)
     
     return completeness, purity, f1_score
+
+def calculate_membership_completeness(og_labels, pred_labels):
+    confusion_matrix = pd.crosstab(index=og_labels, columns=pred_labels) 
+    
+    og_groups, og_group_count = np.unique(og_labels, return_counts=True)
+    
+    ogc_expanded = og_group_count[:, np.newaxis]
+    
+    completeness = confusion_matrix/ogc_expanded
+    
+    return completeness
+
+def calculate_membership_purity(og_labels, pred_labels):
+    confusion_matrix = pd.crosstab(index=og_labels, columns=pred_labels) 
+    
+    pred_groups, pred_group_count = np.unique(pred_labels, return_counts=True)
+    
+    pgc_expanded = pred_group_count[np.newaxis,:]
+    
+    purity = confusion_matrix/pgc_expanded
+    
+    return purity
+
+def calculate_membership_f1(og_labels, pred_labels):
+    confusion_matrix = pd.crosstab(index=og_labels, columns=pred_labels) 
+    
+    og_groups, og_group_count = np.unique(og_labels, return_counts=True)
+    pred_groups, pred_group_count = np.unique(pred_labels, return_counts=True)
+    
+    ogc_expanded = og_group_count[:, np.newaxis]
+    pgc_expanded = pred_group_count[np.newaxis,:]
+    
+    completeness = confusion_matrix/ogc_expanded
+    purity = confusion_matrix/pgc_expanded
+    f1_score = cm.get_f1_score(completeness, purity)
+    f1_score = np.nan_to_num(f1_score, nan=0)
+    
+    return f1_score
+
 
 def reliability_gradient(matrix, steps=100, source_axis=1):
     
