@@ -269,7 +269,6 @@ def calculate_membership_f1(og_labels, pred_labels):
     
     return f1_score
 
-
 def reliability_gradient(matrix, steps=100, source_axis=1):
     
     x_values = np.linspace(0, 1, steps)
@@ -286,3 +285,13 @@ def reliability_gradient(matrix, steps=100, source_axis=1):
         percentages.append(percentage)
     
     return percentages
+
+def retag_noise(clusters, n = 3, tag = -1, key = "haloId"):
+    
+    new_cluster_list = []
+    for df in clusters:
+        counts = df.groupby(key)[key].transform("count")
+        df = df.copy()
+        df.loc[counts <= n, key] = tag
+        new_cluster_list.append(df.reset_index(drop=True))
+    return new_cluster_list

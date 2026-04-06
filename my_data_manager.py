@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 import astro_utils as au
 from astropy.stats import biweight_location
+import glob
 
 def scrub_data(df):
     
@@ -64,7 +65,6 @@ def separate_halos(df):
     dfs = [group_df for _, group_df in grouped]
 
     return dfs
-
 
 def load_data(path):
 
@@ -136,7 +136,61 @@ def separate_clusters(dfs, members_threshold = 50, log_mass_threshold = 14, Mp_s
     
     return clusters, groups
 
+def save_dict_to_excel(results_dict, filename="results.xlsx"):
 
+    directory = os.path.dirname(filename)
+    if directory:  # avoid issues if filename has no path
+        os.makedirs(directory, exist_ok=True)
+
+    with pd.ExcelWriter(filename, engine="openpyxl") as writer:
+        for method_name, df in results_dict.items():
+            # Excel sheet names cannot exceed 31 chars or contain some special symbols
+            safe_name = str(method_name)[:31].replace("/", "_").replace("\\", "_")
+            df.to_excel(writer, sheet_name=safe_name, index=False)
+    print(f"Results saved to '{filename}'")
+
+def load_results(path):
+
+    results_df = {}
+    
+    files = glob.glob(os.path.join(path, "*.xlsx"))
+
+
+    for f in files:
         
+        xls = pd.ExcelFile(f)
+        sheet_names = xls.sheet_names  # skip the first sheet
+        
+        key = os.path.splitext(os.path.basename(f))[0]
 
+        df_time = pd.read_excel(xls, sheet_name=sheet_names[0])
+        df_time = df_time.iloc[:, 0] 
+
+        executions = []
+        for name in sheet_names[1:]:
+            df = pd.read_excel(xls, sheet_name=name)
+            df.columns = df.columns.map(str)
+            executions.append(df)
+        
+        results_df[key] = {"time": df_time, "executions": executions}
+
+    return results_df
+
+def transpose_list_of_dfs(dfs):
+    n_exec = len(dfs)
+    n_features = dfs[0].shape[1]
+
+    feature_dfs = {}
+
+    for col_idx in range(n_features):
+        feature_id = dfs[0].columns[col_idx]
+
+        col_data = [df.iloc[:, col_idx].reset_index(drop=True) for df in dfs]
+
+        df_new = pd.concat(col_data, axis=1)
+        df_new.columns = [f"exec_{i+1}" for i in range(n_exec)]
+
+        feature_dfs[feature_id] = df_new
+
+    return feature_dfs
 

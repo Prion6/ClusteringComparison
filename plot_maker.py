@@ -2,6 +2,7 @@ import color_generator as cg
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
+import pandas as pd
 
 #TODO let them choose color pallete
 def cluster_plot_2D(X_data, Y_data, labels,
@@ -85,7 +86,6 @@ def cluster_plot_2D(X_data, Y_data, labels,
 
     return fig, ax
 
-
 def map_colors(labels, colors, noise_label):
     maped_colors = []
     
@@ -121,55 +121,93 @@ def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples 
     # Return figure and axis instead of showing the plot
     return fig, ax
 
-def gradients_bar_plot(legends, gradients, xlabel="Reliability", ylabel="Samples Validated", title="Reliability Gradient", colors = None):
-    x_points = np.array([0.2, 0.4, 0.6, 0.8, 1.0])
-    num_reliabilities = len(x_points)
-    num_algorithms = len(gradients)
+def gradient_bar_plot(
+    df,
+    metric_name,
+    thresholds,
+    methods_order,
+    ax=None,
+    colors=None,
+    cmap_name="tab10",
+    ymax=0.6,
+    text_top_margin=0.025,
+    text_gap=0.025,
+    show_ylabel=False,
+    bar_width=0.75
+):
+    if len(thresholds) == 0:
+        raise ValueError("thresholds must contain at least one value")
 
-    legends = list(legends)
-    
-    group_width = 0.8
-    bar_width = group_width/num_algorithms
-    fig, ax = plt.subplots(figsize=(12, 6))
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+    else:
+        fig = ax.figure
+
+    thresholds = sorted(thresholds)
+
     if colors is None:
-        colors = cg.high_contrast_colors(len(gradients))
+        cmap = plt.get_cmap(cmap_name, len(thresholds))
+        colors = [cmap(i) for i in range(len(thresholds))]
 
-    xticks = []
-    xtick_labels = []
+    if len(colors) < len(thresholds):
+        raise ValueError(
+            f"Not enough colors for {len(thresholds)} thresholds. "
+            f"Received {len(colors)} colors."
+        )
 
-    # Plot bars
-    
-    for i, gradient in enumerate(gradients):
-        heights = []
-        for rel in x_points:
-            full_x = np.linspace(0, 1, len(gradient))
-            y = np.interp(rel, full_x, gradient)
-            heights.append(y)
+    methods_present = [m for m in methods_order if m in df.index]
 
-        # X positions for this reliability level
-        x_offsets = np.arange(len(x_points)) - (group_width / 2) + i * bar_width + bar_width / 2
-        ax.bar(x_offsets, heights, width=bar_width, color=colors[i], label=f"{rel}")
+    if len(methods_present) == 0:
+        print(f"No valid methods found for {metric_name}")
+        return fig, ax, False
 
-        xticks.extend(x_offsets)
-        xtick_labels.extend([legends[i]] * num_reliabilities)
+    df = df.loc[methods_present]
 
-    # Set tick labels for reliability values (above)
-    ax.set_xticks(xticks)
-    ax.set_xticklabels(xtick_labels, rotation=90)
+    ncols = df.shape[1]
+    threshold_grid = np.linspace(0, 1, ncols)
+    x = np.arange(len(methods_present))
 
-    # Add algorithm names centered under each group
-    for idx, name in enumerate(x_points):
-        group_center = idx
-        ax.text(group_center, -0.25 * ax.get_ylim()[1], name,
-                ha='center', va='top', fontsize=10, fontweight='bold')
+    threshold_values = {}
+    for t in thresholds:
+        idx = np.abs(threshold_grid - t).argmin()
+        threshold_values[t] = df.iloc[:, idx].values / 100.0
 
-    # Formatting
-    ax.set_xlabel(xlabel, labelpad = 40)
-    ax.set_ylim(0, 100)
-    ax.set_ylabel(ylabel)
-    ax.set_title(title)
-    #ax.legend(legends, title="Algorithms")
-    ax.grid(True, axis='y')
+    for j, t in enumerate(thresholds):
+        ax.bar(
+            x,
+            threshold_values[t],
+            width=bar_width,
+            color=colors[j],
+            label=fr"$t \geq {t}$",
+            edgecolor="white",
+            linewidth=0.5
+        )
 
-    return fig, ax
+    text_top = ymax - text_top_margin
 
+    for row_idx, t in enumerate(thresholds):
+        y_text = text_top - row_idx * text_gap
+
+        for xi, val in zip(x, threshold_values[t]):
+            ax.text(
+                xi,
+                y_text,
+                f"{val:.2f}",
+                ha="center",
+                va="top",
+                fontsize=13,
+                fontweight="bold",
+                color=colors[row_idx]
+            )
+
+    title = metric_name.replace("N_", "").replace("M_", "").replace("_", " ")
+    ax.set_title(title, fontsize=20, fontweight="bold", pad=15)
+    ax.set_xticks(x)
+    ax.set_xticklabels(methods_present, rotation=35, ha="right", fontsize=11)
+    ax.set_ylim(0, ymax)
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+    if show_ylabel:
+        ax.set_ylabel("Score", fontsize=14, fontweight="bold")
+
+    return fig, ax, True
