@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import pandas as pd
+from matplotlib.patches import Circle
+import cluster_utils as cu
 
 #TODO let them choose color pallete
 def cluster_plot_2D(X_data, Y_data, labels,
@@ -211,3 +213,151 @@ def gradient_bar_plot(
         ax.set_ylabel("Score", fontsize=14, fontweight="bold")
 
     return fig, ax, True
+
+def plot_comparative_clusters(X_data, Y_data, group, labels, alpha_pred=0.3, alpha_true=0.3, cmap = "tab10", noise_label = -1, pred_color = "blue", true_color = "red"):
+    """
+    Comparative plot of predicted vs true clusters.
+
+    - Points are colored according to TRUE labels (group)
+    - Noise (-1) is plotted in gray
+    - Predicted clusters only affect circles + centers
+
+    Returns
+    -------
+    fig, ax
+    """
+
+    X_data = np.asarray(X_data)
+    Y_data = np.asarray(Y_data)
+    group = np.asarray(group)
+    labels = np.asarray(labels)
+
+    data = np.column_stack((X_data, Y_data))
+
+    fig, ax = plt.subplots(figsize=(12, 10))
+
+    # ============================
+    # 1) POINTS (TRUE LABEL COLORS)
+    # ============================
+    unique_true = np.unique(group)
+    true_non_noise = unique_true[unique_true != noise_label]
+
+    cmap = plt.cm.get_cmap(cmap, max(len(true_non_noise), 1))
+
+    # plot clusters
+    for i, lab in enumerate(true_non_noise):
+        mask = group == lab
+        ax.scatter(
+            X_data[mask],
+            Y_data[mask],
+            s=110,
+            color=cmap(i),
+            edgecolors="none",
+            zorder=3
+        )
+
+    # plot noise in gray
+    noise_mask = group == noise_label
+    if np.any(noise_mask):
+        ax.scatter(
+            X_data[noise_mask],
+            Y_data[noise_mask],
+            s=110,
+            color="gray",
+            edgecolors="none",
+            zorder=2
+        )
+
+    # ============================
+    # 2) PREDICTED CIRCLES
+    # ============================
+    pred_non_noise = np.unique(labels)
+    pred_non_noise = pred_non_noise[pred_non_noise != noise_label]
+
+    pred_cmap = plt.cm.get_cmap("Blues", max(len(pred_non_noise), 1))
+
+    pred_mask = labels != noise_label
+    pred_center_label_used = False
+
+    if np.any(pred_mask):
+        pred_centers = cu.calculate_cluster_centers(data[pred_mask], labels[pred_mask])
+
+        for i, lab in enumerate(pred_non_noise):
+            center = np.asarray(pred_centers[lab]["location"])
+            spread = np.asarray(pred_centers[lab]["scale"])
+            radius = float(np.linalg.norm(spread))
+
+            circle = Circle(
+                (center[0], center[1]),
+                radius=radius,
+                facecolor=pred_color,
+                edgecolor=pred_color,
+                alpha=alpha_pred,
+                zorder=1
+            )
+            ax.add_patch(circle)
+
+            ax.scatter(
+                center[0],
+                center[1],
+                marker="o",
+                s=45,
+                color=pred_color,
+                zorder=5,
+                label="Predicted Centers (o)" if not pred_center_label_used else None
+            )
+            pred_center_label_used = True
+
+    # ============================
+    # 3) TRUE CIRCLES
+    # ============================
+    true_mask = group != noise_label
+    true_center_label_used = False
+
+    if np.any(true_mask):
+        true_centers = cu.calculate_cluster_centers(data[true_mask], group[true_mask])
+
+        for i, lab in enumerate(true_non_noise):
+            center = np.asarray(true_centers[lab]["location"])
+            spread = np.asarray(true_centers[lab]["scale"])
+            radius = float(np.linalg.norm(spread))
+
+            color = cmap(i)
+
+            circle = Circle(
+                (center[0], center[1]),
+                radius=radius,
+                facecolor=true_color,
+                edgecolor=true_color,
+                alpha=alpha_true,
+                zorder=1
+            )
+            ax.add_patch(circle)
+
+            ax.scatter(
+                center[0],
+                center[1],
+                marker="x",
+                s=120,
+                color=true_color,
+                linewidths=1.8,
+                zorder=6,
+                label="True Centers (x)" if not true_center_label_used else None
+            )
+            true_center_label_used = True
+
+    # ============================
+    # Formatting
+    # ============================
+    ax.set_title("Comparative Plot")
+    ax.set_xlabel("X Position")
+    ax.set_ylabel("Y Position")
+    ax.grid(True, alpha=0.5)
+    ax.legend(loc="upper right")
+
+    return fig, ax
+
+
+
+
+
