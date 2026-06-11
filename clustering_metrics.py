@@ -130,28 +130,44 @@ def compute_times(reported_results):
     for method, alg in reported_results.items():
         df_time = alg["time"].copy()
 
-        # Remove iteration column if present
+        if isinstance(df_time, pd.Series):
+            df_time = df_time.to_frame()
+
         if "Iteration" in df_time.columns:
             df_time = df_time.drop(columns=["Iteration"])
 
-        # Convert all cells to numeric
         df_time = df_time.apply(pd.to_numeric, errors="coerce")
 
-        # Sum all galaxy-cluster times within each execution/run
-        # Each column corresponds to one run
-        run_totals = df_time.sum(axis=0, skipna=True).values
-
-        # Remove invalid totals if any
+        # Each column = one full run over all galaxy clusters
+        run_totals = df_time.sum(axis=0, skipna=True).to_numpy()
         run_totals = run_totals[~np.isnan(run_totals)]
 
-        mean_time = np.mean(run_totals) if len(run_totals) > 0 else np.nan
-        std_time = np.std(run_totals) if len(run_totals) > 0 else np.nan
+        # Each cell = one algorithm execution on one galaxy cluster
+        execution_times = df_time.to_numpy().ravel()
+        execution_times = execution_times[~np.isnan(execution_times)]
 
         rows.append({
             "Method": method,
-            "Mean": mean_time,
-            "Std": std_time,
-            "Summary": f"{mean_time:.4f} ± {std_time:.4f}" if len(run_totals) > 0 else "nan ± nan"
+
+            # Total time of one full run over all clusters
+            "Run_Mean": np.mean(run_totals) if len(run_totals) > 0 else np.nan,
+            "Run_Std": np.std(run_totals) if len(run_totals) > 0 else np.nan,
+
+            # Time of one execution on one cluster
+            "Execution_Mean": np.mean(execution_times) if len(execution_times) > 0 else np.nan,
+            "Execution_Std": np.std(execution_times) if len(execution_times) > 0 else np.nan,
+
+            "Total_Time": np.sum(run_totals) if len(run_totals) > 0 else np.nan,
+
+            "Run_Summary": (
+                f"{np.mean(run_totals):.4f} ± {np.std(run_totals):.4f}"
+                if len(run_totals) > 0 else "nan ± nan"
+            ),
+
+            "Execution_Summary": (
+                f"{np.mean(execution_times):.4f} ± {np.std(execution_times):.4f}"
+                if len(execution_times) > 0 else "nan ± nan"
+            )
         })
 
     return pd.DataFrame(rows)
@@ -230,38 +246,35 @@ def compute_clustering_metric(reported_results, samples, metric_func):
 
     return results_dict
 
-def compute_spatial_metric(reported_results, samples, metric_func):
+def compute_spatial_metric(reported_results, samples, metric_func, x_label = "RA", y_label = "DEC", id_label = "haloId", clusterId_label = "firstHaloInFOFGroupId"):
     
-    results_dict = {}
+    cluster_metrics = {}
 
-    for method, alg_report in reported_results.items():
-        executions = alg_report["executions"]
-        clustering_results = mdm.transpose_list_of_dfs(executions)
+    for galaxy_cluster in samples:
+        s = str(galaxy_cluster[clusterId_label].iloc[0])
+        results = reported_results[s]
 
-        cluster_metrics = {}
+        print(s)
 
-        for galaxy_cluster in samples:
-            s = str(galaxy_cluster["firstHaloInFOFGroupId"].iloc[0])
-            results = clustering_results[s]
+        metric_clus = []
 
-            metric_clus = []
+        for exec in results.columns:
 
-            for exec in results.columns:
+            labels = results[exec].dropna().to_numpy(dtype=np.float64)
+            true_labels = galaxy_cluster[id_label].to_numpy(dtype=np.float64)
 
-                labels = results[exec].dropna().to_numpy(dtype=np.float64)
-                true_labels = galaxy_cluster["haloId"].to_numpy(dtype=np.float64)
+            data = galaxy_cluster[[x_label, y_label]].to_numpy(dtype=np.float64)
 
-                data = galaxy_cluster[["RA", "DEC"]].to_numpy(dtype=np.float64)
+            print(data.shape)
+            print(len(labels))
 
-                metric = metric_func(data, true_labels, labels)
+            metric = metric_func(data, true_labels, labels)
 
-                metric_clus.append(metric)
+            metric_clus.append(metric)
 
-            cluster_metrics[s] = metric_clus
+        cluster_metrics[s] = metric_clus
 
-        results_dict[method] = cluster_metrics
-
-    return results_dict
+    return cluster_metrics
 
 def compute_membership_metric(reported_results, samples, metric_func):
 

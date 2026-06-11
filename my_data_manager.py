@@ -5,6 +5,8 @@ import numpy as np
 import astro_utils as au
 from astropy.stats import biweight_location
 import glob
+from openpyxl import Workbook
+from itertools import zip_longest
 
 def scrub_data(df):
     
@@ -104,7 +106,7 @@ def extract_df(data_frame):
 
     return X_data, Y_data, Z_data, x_center, y_center, Z_clus
 
-def separate_clusters(dfs, members_threshold = 50, log_mass_threshold = 14, Mp_size_threshold = 1):
+def separate_clusters(dfs, members_threshold = 50, log_mass_threshold = 14, Mp_size_threshold = 1.0):
     clusters = []
     groups = []
 
@@ -152,27 +154,29 @@ def save_dict_to_excel(results_dict, filename="results.xlsx"):
 def load_results(path):
 
     results_df = {}
-    
+
     files = glob.glob(os.path.join(path, "*.xlsx"))
 
-
     for f in files:
-        
+
         xls = pd.ExcelFile(f)
-        sheet_names = xls.sheet_names  # skip the first sheet
-        
+        sheet_names = xls.sheet_names
+
         key = os.path.splitext(os.path.basename(f))[0]
 
         df_time = pd.read_excel(xls, sheet_name=sheet_names[0])
-        df_time = df_time.iloc[:, 0] 
 
         executions = []
+
         for name in sheet_names[1:]:
             df = pd.read_excel(xls, sheet_name=name)
             df.columns = df.columns.map(str)
             executions.append(df)
-        
-        results_df[key] = {"time": df_time, "executions": executions}
+
+        results_df[key] = {
+            "time": df_time,
+            "executions": executions
+        }
 
     return results_df
 
@@ -194,3 +198,33 @@ def transpose_list_of_dfs(dfs):
 
     return feature_dfs
 
+def save_xlsx(results, title):
+    wb = Workbook()
+
+    # 1. Setup the Execution Times sheet (Rows = Iterations, Cols = Samples/Runs)
+    sheet1 = wb.active
+    sheet1.title = "Execution Times"
+    
+    # Extract just the duration lists from the results
+    # results = [( [times], [preds] ), ( [times], [preds] )]
+    all_duration_lists = [res[0] for res in results]
+    
+    # Create Headers: "Iteration", "Sample 1", "Sample 2", etc.
+    headers = ["Iteration"] + [f"Run {i+1}" for i in range(len(all_duration_lists))]
+    sheet1.append(headers)
+
+    # Use zip_longest to pair up times by iteration index
+    # fillvalue="" handles cases where one run has fewer iterations than others
+    for idx, row_times in enumerate(zip_longest(*all_duration_lists, fillvalue="")):
+        # Append iteration number (idx+1) followed by the times for that iteration
+        sheet1.append([idx + 1] + list(row_times))
+
+    # 2. Store the prediction data in separate sheets as before
+    for res_idx, (_, data) in enumerate(results):
+        sheet = wb.create_sheet(title=f"Result_{res_idx + 1}")
+        
+        # This keeps your original logic for predictions
+        for row in zip_longest(*data, fillvalue=""):
+            sheet.append(row)
+
+    wb.save(f"{title}.xlsx")

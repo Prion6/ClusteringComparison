@@ -1,10 +1,11 @@
-import color_generator as cg
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import pandas as pd
 from matplotlib.patches import Circle
 import cluster_utils as cu
+import seaborn as sns
+from scipy.stats import spearmanr
 
 #TODO let them choose color pallete
 def cluster_plot_2D(X_data, Y_data, labels,
@@ -13,8 +14,7 @@ def cluster_plot_2D(X_data, Y_data, labels,
                             x_axis_nature="X Axis", y_axis_nature="Y Axis",
                             size=30, scale_array = None, marker="o", colors=None,
                             edges=True, linewidth=1.5, edgecolors=None,
-                            figsize=(8,6), grid=True,
-                            color_generator=cg.high_contrast_colors):
+                            figsize=(8,6), grid=True):
 
     #scale_array = None -> no scaling, everything at specified size
     if scale_array is None:
@@ -24,17 +24,12 @@ def cluster_plot_2D(X_data, Y_data, labels,
     clusters = np.unique(labels, return_inverse=True)[0]
 
     clusters = clusters[clusters != noise_label]
-
-    if colors is None:
-        colors = color_generator(len(clusters))
         
     maped_colors = map_colors(labels, colors, noise_label)
     
     maped_edgecolors = []
     
     if edges:
-        if edgecolors is None:
-            edgecolors = color_generator(len(clusters))
         maped_edgecolors = map_colors(labels, edgecolors, noise_label)
 
 
@@ -102,9 +97,6 @@ def map_colors(labels, colors, noise_label):
 
 def gradients_plot(legends, gradients, xlabel = "Reliability", ylabel = "Saples Validated", title = "Reliability Gradient", colors = None):
     
-    if colors is None:
-        colors = cg.high_contrast_colors(len(gradients))
-
     x_values = np.linspace(0, 1, 100)
 
     # Create the figure and axis
@@ -131,7 +123,7 @@ def gradient_bar_plot(
     ax=None,
     colors=None,
     cmap_name="tab10",
-    ymax=0.6,
+    ymax=1,
     text_top_margin=0.025,
     text_gap=0.025,
     show_ylabel=False,
@@ -214,7 +206,7 @@ def gradient_bar_plot(
 
     return fig, ax, True
 
-def plot_comparative_clusters(X_data, Y_data, group, labels, alpha_pred=0.3, alpha_true=0.3, cmap = "tab10", noise_label = -1, pred_color = "blue", true_color = "red"):
+def comparative_clusters(X_data, Y_data, group, labels, alpha_pred=0.3, alpha_true=0.3, cmap = "tab10", noise_label = -1, pred_color = "blue", true_color = "red"):
     """
     Comparative plot of predicted vs true clusters.
 
@@ -354,6 +346,321 @@ def plot_comparative_clusters(X_data, Y_data, group, labels, alpha_pred=0.3, alp
     ax.set_ylabel("Y Position")
     ax.grid(True, alpha=0.5)
     ax.legend(loc="upper right")
+
+    return fig, ax
+
+def fragmentation_radial(
+    data,
+    xlim=(0, 5),
+    ylim=(0, 6),
+    figsize=(8, 6)
+):
+    """
+    data format:
+    {
+        "Method": {
+            "radius": array-like,
+            "frag": array-like
+        },
+        ...
+    }
+    """
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    for method in sorted(data.keys()):
+        r_vals = np.asarray(data[method]["radius"], dtype=float)
+        frag_vals = np.asarray(data[method]["frag"], dtype=float)
+
+        order = np.argsort(r_vals)
+        r_vals = r_vals[order]
+        frag_vals = frag_vals[order]
+
+        rho, _ = spearmanr(r_vals, frag_vals)
+
+        label_text = f"{method} ($\\rho$ = {rho:.2f})"
+
+        # =========================================================
+        # Fragmentation tendencies
+        # =========================================================
+
+        sns.regplot(
+            x=r_vals,
+            y=frag_vals,
+            scatter=False,
+            lowess=True,
+            ci=None,
+            ax=ax,
+            label=label_text,
+            line_kws={"linewidth": 2.5, "alpha": 0.85}
+        )
+
+    # =========================================================
+    # Line marking Ideal 
+    # =========================================================
+
+    ax.axhline(
+        1.0,
+        color="black",
+        linestyle=":",
+        linewidth=1.5,
+        alpha=0.7,
+        label="Ideal (1:1)"
+    )
+
+    # =========================================================
+    # Line marking R_200
+    # =========================================================
+
+    ax.axvline(
+        1.0,
+        color="red",
+        linestyle="--",
+        linewidth=1.2,
+        alpha=0.5,
+        label=r"$R_{200}$"
+    )
+
+    
+    ax.set_xlabel(r"$R_{proj} / R_{200}$", fontsize=14)
+    ax.set_ylabel(r"$n_{\mathrm{pred}} / n_{\mathrm{true}}$", fontsize=14)
+
+    ax.set_xlim(*xlim)
+    ax.set_ylim(*ylim)
+
+    handles, labels = ax.get_legend_handles_labels()
+    unique = dict(zip(labels, handles))
+
+    ax.legend(
+        unique.values(),
+        unique.keys(),
+        loc="upper right",
+        ncol=2,
+        fontsize=12,
+        title=r"Spearman $\rho$",
+        title_fontsize=11,
+        frameon=True,
+        framealpha=0.9
+    )
+
+    return fig, ax
+
+def frag_boxplot(
+    df,
+    methods_order=None,
+    display_labels=None,
+    x_key="Method",
+    y_key="Frag_Ratio",
+    palette="tab10",
+    title=r"$n_{\mathrm{pred}} / n_{\mathrm{true}}$",
+    ylabel="Ratio",
+    figsize=(8, 6)
+):
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    if methods_order is None:
+        methods_order = sorted(df[x_key].unique())
+
+    if display_labels is None:
+        display_labels = methods_order
+
+    sns.boxplot(
+        data=df,
+        x=x_key,
+        y=y_key,
+        order=methods_order,
+        palette=palette,
+        showfliers=False,
+        linewidth=1.5,
+        ax=ax
+    )
+
+    ax.axhline(1, color="red", linestyle="--", linewidth=2)
+
+    # No ylim
+
+    ax.set_title(title, fontsize=14)
+    ax.set_ylabel(ylabel)
+    ax.set_xlabel("")
+
+    ax.set_xticklabels(display_labels, rotation=35, ha="right")
+    ax.grid(axis="y", linestyle="--", alpha=0.3)
+
+    fig.tight_layout()
+
+    return fig, ax
+
+def offset_f1_degradation(
+    data,
+    x_key="dist",
+    y_key="f1",
+    x_unit="\"",
+    x_label="Centering Offset",
+    y_label="F1 Score",
+    xlim=(0, 0.1),
+    ylim=(0, 1),
+    figsize=(8, 6),
+    plot_sigma = True,
+    plot_median = True
+):
+    fig, ax = plt.subplots(figsize=figsize)
+
+    all_x = []
+
+    if x_unit == "\"":
+        xlim = (xlim[0], xlim[1] * 3600)
+
+
+    for method in sorted(data.keys()):
+        x_vals = np.asarray(data[method][x_key], dtype=float)
+        y_vals = np.asarray(data[method][y_key], dtype=float)
+
+        valid = np.isfinite(x_vals) & np.isfinite(y_vals)
+
+        x_vals = x_vals[valid]
+        y_vals = y_vals[valid]
+
+        if x_unit == "\"":
+            x_vals = x_vals * 3600
+
+       
+        all_x.extend(x_vals)
+
+        rho, _ = spearmanr(x_vals, y_vals)
+
+        clean_method = method.replace("ML_", "")
+        label_text = f"{clean_method} ($\\rho$ = {rho:.2f})"
+
+        sns.regplot(
+            x=x_vals,
+            y=y_vals,
+            scatter=False,
+            ax=ax,
+            label=label_text,
+            lowess=True,
+            ci=None,
+            line_kws={"linewidth": 3, "alpha": 0.8}
+        )
+
+    if plot_median & len(all_x) > 0:
+        all_x = np.asarray(all_x)
+
+        med_val = np.median(all_x)
+        std_val = np.std(all_x)
+
+        ax.axvline(
+            med_val,
+            color="black",
+            linestyle=":",
+            linewidth=2.5,
+            label=f"Median Offset: {med_val:.1f}{x_unit}",
+            zorder=5
+        )
+
+        if plot_sigma:
+            ax.axvspan(
+                0,
+                med_val + std_val,
+                color="gray",
+                alpha=0.15,
+                label=r"1$\sigma$ Uncertainty Zone",
+                zorder=1
+            )
+
+    ax.set_xlabel(f"{x_label} [{x_unit}]", fontsize=14)
+    ax.set_ylabel(y_label, fontsize=14)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
+    ax.legend(
+        loc="upper right",
+        fontsize=12,
+        title_fontsize=11,
+        frameon=True,
+        framealpha=0.9
+    )
+
+    return fig, ax
+
+def radial_f1_degradation(
+    data,
+    x_key="radius",
+    y_key="f1",
+    x_label=r"$R_{proj} / R_{200}$",
+    y_label="F1 Score",
+    xlim=(0, 5),
+    ylim=(0, 1),
+    y_tick_step = 0.1,
+    x_tick_step=1,
+    figsize=(8, 6),
+    legend_loc="upper left"
+):
+    fig, ax = plt.subplots(figsize=figsize)
+
+    x_ticks = np.arange(
+            xlim[0],
+            xlim[1] + x_tick_step,
+            x_tick_step
+        )
+    
+    y_ticks = np.arange(
+            ylim[0],
+            ylim[1] + y_tick_step,
+            y_tick_step
+        )
+
+    for method in sorted(data.keys()):
+
+        x_vals = np.asarray(data[method][x_key], dtype=float)
+        y_vals = np.asarray(data[method][y_key], dtype=float)
+
+        valid = np.isfinite(x_vals) & np.isfinite(y_vals)
+
+        x_vals = x_vals[valid]
+        y_vals = y_vals[valid]
+
+        rho, _ = spearmanr(x_vals, y_vals)
+
+        label_text = f"{method} ($\\rho$ = {rho:.2f})"
+
+        sns.regplot(
+            x=x_vals,
+            y=y_vals,
+            scatter=False,
+            lowess=True,
+            ax=ax,
+            label=label_text,
+            line_kws={"linewidth": 3, "alpha": 0.8}
+        )
+
+        
+    ax.set_xticks(x_ticks)
+    ax.set_yticks(y_ticks)
+
+    ax.axvline(
+        1.0,
+        color="red",
+        linestyle="--",
+        alpha=0.5,
+        linewidth=1,
+        label="$R_{200}$ Limit"
+    )
+
+    ax.set_xlabel(x_label, fontsize=14)
+    ax.set_ylabel(y_label, fontsize=14)
+
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+
+    ax.legend(
+        loc=legend_loc,
+        ncol=2,
+        fontsize=10,
+        frameon=True,
+        framealpha=0.9
+    )
 
     return fig, ax
 

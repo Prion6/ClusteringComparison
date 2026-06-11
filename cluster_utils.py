@@ -5,6 +5,7 @@ from kneed import KneeLocator
 from sklearn.neighbors import NearestNeighbors
 from numpy import pi
 import pandas as pd
+import astro_utils as au
 
 def find_eps(data, k=3):
   
@@ -295,3 +296,103 @@ def retag_noise(clusters, n = 3, tag = -1, key = "haloId"):
         df.loc[counts <= n, key] = tag
         new_cluster_list.append(df.reset_index(drop=True))
     return new_cluster_list
+
+def compute_best_f1_radial_fragmentation(
+    halos_dict,
+    cluster_lookup,
+    match_threshold=0.1
+):
+    all_r = []
+    all_frag = []
+
+    for h_id, f1_matrix_list in halos_dict.items():
+        h_id_str = str(h_id)
+
+        if h_id_str not in cluster_lookup:
+            continue
+
+        df = cluster_lookup[h_id_str]
+
+        r_distances = au.get_halo_radial_distances(df)
+        n_phys = len(r_distances)
+
+        if n_phys == 0:
+            continue
+
+        exec_fragmentation = []
+
+        for f1_mat in f1_matrix_list:
+            f1_arr = np.asarray(f1_mat)
+
+            if f1_arr.shape[0] != n_phys:
+                continue
+
+            if f1_arr.shape[1] > 0:
+                frag_counts = np.sum(
+                    f1_arr >= match_threshold,
+                    axis=1
+                )
+            else:
+                frag_counts = np.zeros(n_phys)
+
+            exec_fragmentation.append(frag_counts)
+
+        if exec_fragmentation:
+            frag_mean = np.mean(exec_fragmentation, axis=0)
+
+            all_r.extend(r_distances)
+            all_frag.extend(frag_mean)
+
+    return {
+        "radius": np.asarray(all_r),
+        "frag": np.asarray(all_frag)
+    }
+
+def extract_top_matches_per_true(f1_matrix, dist_matrix, n_best=3, min_f1=0):
+    """
+    Rows = true sub-halos
+    Columns = predicted groups
+
+    For each true sub-halo, select the N predicted groups with highest F1
+    and return their F1 values and corresponding distances.
+    """
+
+    f1_matrix = np.asarray(f1_matrix)
+    dist_matrix = np.asarray(dist_matrix)
+
+    if f1_matrix.shape != dist_matrix.shape:
+        raise ValueError(
+            f"Shape mismatch: f1_matrix {f1_matrix.shape}, "
+            f"dist_matrix {dist_matrix.shape}"
+        )
+
+    results = []
+
+    n_true, n_pred = f1_matrix.shape
+
+    for true_idx in range(n_true):
+
+        f1_row = f1_matrix[true_idx, :]
+        dist_row = dist_matrix[true_idx, :]
+
+        valid = np.isfinite(f1_row) & np.isfinite(dist_row) & (f1_row >= min_f1)
+
+        if not np.any(valid):
+            continue
+
+        pred_indices = np.where(valid)[0]
+
+        sorted_pred_indices = pred_indices[np.argsort(f1_row[valid])[::-1]]
+
+        top_pred_indices = sorted_pred_indices[:n_best]
+
+        for rank, pred_idx in enumerate(top_pred_indices, start=1):
+            results.append({
+                "true_idx": true_idx,
+                "pred_idx": pred_idx,
+                "rank": rank,
+                "f1": f1_matrix[true_idx, pred_idx],
+                "dist": dist_matrix[true_idx, pred_idx],
+            })
+
+    return results
